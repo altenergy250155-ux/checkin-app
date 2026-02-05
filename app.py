@@ -75,7 +75,7 @@ def login():
     auth_url = (
         f"{SLACK_AUTH_URL}"
         f"?client_id={SLACK_CLIENT_ID}"
-        f"&user_scope=users.profile:write,users:read,users:read.email"
+        f"&user_scope=identity.basic,identity.email,users.profile:write"
         f"&redirect_uri={redirect_uri}"
     )
     
