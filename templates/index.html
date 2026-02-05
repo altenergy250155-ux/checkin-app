@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>勤務地チェックインシステム</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            width: 100%;
+            max-width: 420px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .user-info {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+        
+        .user-info .name {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .user-info .email {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 12px;
+        }
+        
+        .user-info .location {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .user-info .location .icon {
+            font-size: 24px;
+        }
+        
+        .user-info .location .text {
+            flex: 1;
+        }
+        
+        .user-info .location .label {
+            font-size: 12px;
+            color: #888;
+        }
+        
+        .user-info .location .value {
+            font-size: 16px;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .user-info .location.unknown {
+            background: #fff3cd;
+            border-color: #ffc107;
+        }
+        
+        .user-info .location.unknown .value {
+            color: #856404;
+        }
+        
+        .buttons {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 16px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn-checkin {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-checkin:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-checkout {
+            background: #f8f9fa;
+            color: #333;
+            border: 2px solid #e0e0e0;
+        }
+        
+        .btn-checkout:hover:not(:disabled) {
+            background: #e9ecef;
+        }
+        
+        .message {
+            padding: 14px 16px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            text-align: center;
+        }
+        
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .footer {
+            text-align: center;
+        }
+        
+        .footer a {
+            color: #888;
+            font-size: 14px;
+            text-decoration: none;
+        }
+        
+        .footer a:hover {
+            color: #666;
+            text-decoration: underline;
+        }
+        
+        .ip-info {
+            text-align: center;
+            margin-top: 16px;
+            font-size: 12px;
+            color: #aaa;
+        }
+        
+        /* Login page styles */
+        .login-container {
+            text-align: center;
+        }
+        
+        .login-container .logo {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+        
+        .login-container h1 {
+            margin-bottom: 12px;
+        }
+        
+        .login-container p {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        
+        .btn-slack {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: #4A154B;
+            color: white;
+            padding: 14px 28px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-size: 16px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-slack:hover {
+            background: #611f69;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(74, 21, 75, 0.3);
+        }
+        
+        .btn-slack svg {
+            width: 20px;
+            height: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        {% if user %}
+        <!-- Logged in view -->
+        <div class="header">
+            <h1>勤務地チェックイン</h1>
+            <p>ボタンを押してSlackステータスを更新</p>
+        </div>
+        
+        <div class="user-info">
+            <div class="name">{{ user.name }} さん</div>
+            <div class="email">{{ user.email }}</div>
+            
+            {% if office_info %}
+            <div class="location">
+                <div class="icon">🏢</div>
+                <div class="text">
+                    <div class="label">現在の勤務地</div>
+                    <div class="value">{{ office_info.name }}</div>
+                </div>
+            </div>
+            {% else %}
+            <div class="location unknown">
+                <div class="icon">⚠️</div>
+                <div class="text">
+                    <div class="label">現在の勤務地</div>
+                    <div class="value">不明なネットワーク</div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        {% if message %}
+        <div class="message {{ message_type }}">
+            {{ message }}
+        </div>
+        {% endif %}
+        
+        <div class="buttons">
+            <form action="/checkin" method="post" style="flex: 1;">
+                <button type="submit" class="btn btn-checkin" {% if not office_info %}disabled{% endif %}>
+                    出勤
+                </button>
+            </form>
+            <form action="/checkout" method="post" style="flex: 1;">
+                <button type="submit" class="btn btn-checkout">
+                    退勤
+                </button>
+            </form>
+        </div>
+        
+        <div class="footer">
+            <a href="/logout">ログアウト</a>
+        </div>
+        
+        <div class="ip-info">
+            IP: {{ client_ip }}
+        </div>
+        
+        {% else %}
+        <!-- Login view -->
+        <div class="login-container">
+            <div class="logo">🏢</div>
+            <h1>勤務地チェックイン</h1>
+            <p>Slackアカウントでログインして<br>勤務場所を登録しましょう</p>
+            
+            <a href="/login" class="btn-slack">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/>
+                </svg>
+                Slackでログイン
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
