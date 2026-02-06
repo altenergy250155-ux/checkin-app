@@ -166,6 +166,42 @@
             border: 1px solid #f5c6cb;
         }
         
+        .other-locations {
+            margin-bottom: 20px;
+        }
+        
+        .other-locations h3 {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 12px;
+            text-align: center;
+        }
+        
+        .other-buttons {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .btn-remote {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+        
+        .btn-remote:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(17, 153, 142, 0.4);
+        }
+        
+        .btn-site {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        
+        .btn-site:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(245, 87, 108, 0.4);
+        }
+        
         .footer {
             text-align: center;
         }
@@ -257,10 +293,10 @@
             </div>
             {% else %}
             <div class="location unknown">
-                <div class="icon">⚠️</div>
+                <div class="icon">📍</div>
                 <div class="text">
                     <div class="label">現在の勤務地</div>
-                    <div class="value">不明なネットワーク</div>
+                    <div class="value">オフィス外</div>
                 </div>
             </div>
             {% endif %}
@@ -272,9 +308,11 @@
         </div>
         {% endif %}
         
+        {% if office_info %}
+        <!-- オフィスにいる場合 -->
         <div class="buttons">
             <form action="/checkin" method="post" style="flex: 1;">
-                <button type="submit" class="btn btn-checkin" {% if not office_info %}disabled{% endif %}>
+                <button type="submit" class="btn btn-checkin">
                     出勤
                 </button>
             </form>
@@ -284,6 +322,34 @@
                 </button>
             </form>
         </div>
+        {% else %}
+        <!-- オフィス外にいる場合 -->
+        <div class="other-locations">
+            <h3>勤務場所を選択してください</h3>
+            <div class="other-buttons">
+                <form action="/checkin_other" method="post" style="flex: 1;">
+                    <input type="hidden" name="location_type" value="remote">
+                    <button type="submit" class="btn btn-remote">
+                        🏠 リモートワーク
+                    </button>
+                </form>
+                <form action="/checkin_other" method="post" style="flex: 1;">
+                    <input type="hidden" name="location_type" value="site">
+                    <button type="submit" class="btn btn-site">
+                        🏗️ 現場
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <div class="buttons">
+            <form action="/checkout" method="post" style="flex: 1;">
+                <button type="submit" class="btn btn-checkout">
+                    退勤
+                </button>
+            </form>
+        </div>
+        {% endif %}
         
         <div class="footer">
             <a href="/logout">ログアウト</a>
