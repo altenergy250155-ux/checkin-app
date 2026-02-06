@@ -22,13 +22,11 @@ ALLOWED_DOMAIN = 'altenergy.co.jp'
 # Slack OAuth URLs
 SLACK_AUTH_URL = 'https://slack.com/oauth/v2/authorize'
 SLACK_TOKEN_URL = 'https://slack.com/api/oauth.v2.access'
-SLACK_USER_INFO_URL = 'https://slack.com/api/users.identity'
 SLACK_PROFILE_SET_URL = 'https://slack.com/api/users.profile.set'
 
 
 def get_client_ip():
     """クライアントのIPアドレスを取得"""
-    # プロキシ経由の場合はX-Forwarded-Forヘッダーを確認
     if request.headers.get('X-Forwarded-For'):
         return request.headers.get('X-Forwarded-For').split(',')[0].strip()
     return request.remote_addr
@@ -68,14 +66,13 @@ def index():
 @app.route('/login')
 def login():
     """Slack OAuth認証開始"""
-    # Redirect URI を動的に生成
     redirect_uri = url_for('slack_callback', _external=True)
     
-    # Slack認証URLを構築
+    # Sign in with Slack (OpenID Connect) を使用
     auth_url = (
         f"{SLACK_AUTH_URL}"
         f"?client_id={SLACK_CLIENT_ID}"
-        f"&user_scope=identity.basic,identity.email,users.profile:write"
+        f"&user_scope=openid,profile,email,users.profile:write"
         f"&redirect_uri={redirect_uri}"
     )
     
@@ -94,9 +91,9 @@ def slack_callback():
     if not code:
         return "認証コードがありません", 400
     
-    # アクセストークンを取得
     redirect_uri = url_for('slack_callback', _external=True)
     
+    # アクセストークンを取得
     response = requests.post(SLACK_TOKEN_URL, data={
         'client_id': SLACK_CLIENT_ID,
         'client_secret': SLACK_CLIENT_SECRET,
@@ -109,27 +106,33 @@ def slack_callback():
     if not token_data.get('ok'):
         return f"トークン取得エラー: {token_data.get('error')}", 400
     
-    # ユーザー情報を取得
-    access_token = token_data.get('authed_user', {}).get('access_token')
+    # ユーザー情報を取得（トークンレスポンスに含まれる）
+    authed_user = token_data.get('authed_user', {})
+    access_token = authed_user.get('access_token')
+    user_id = authed_user.get('id')
     
-    user_response = requests.get(SLACK_USER_INFO_URL, headers={
-        'Authorization': f'Bearer {access_token}'
-    })
+    # OpenID Connect の場合、ユーザー情報を userinfo エンドポイントから取得
+    userinfo_response = requests.get(
+        'https://slack.com/api/openid.connect.userInfo',
+        headers={'Authorization': f'Bearer {access_token}'}
+    )
     
-    user_data = user_response.json()
+    userinfo = userinfo_response.json()
     
-    if not user_data.get('ok'):
-        return f"ユーザー情報取得エラー: {user_data.get('error')}", 400
+    if not userinfo.get('ok'):
+        return f"ユーザー情報取得エラー: {userinfo.get('error')}", 400
+    
+    email = userinfo.get('email', '')
+    name = userinfo.get('name', '')
     
     # メールドメインを確認
-    email = user_data.get('user', {}).get('email', '')
     if not email.endswith(f'@{ALLOWED_DOMAIN}'):
         return f"このアプリは @{ALLOWED_DOMAIN} のメールアドレスを持つユーザーのみ利用できます", 403
     
     # セッションにユーザー情報を保存
     session['user'] = {
-        'id': user_data.get('user', {}).get('id'),
-        'name': user_data.get('user', {}).get('name'),
+        'id': user_id,
+        'name': name,
         'email': email,
         'access_token': access_token
     }
@@ -163,7 +166,7 @@ def checkin():
             'profile': {
                 'status_text': office_info['status'],
                 'status_emoji': office_info['emoji'],
-                'status_expiration': 0  # 期限なし
+                'status_expiration': 0
             }
         }
     )
