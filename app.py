@@ -16,6 +16,12 @@ OFFICE_IPS = {
     '143.189.212.172': {'name': '立川オフィス', 'emoji': ':office:', 'status': '立川オフィスで勤務中'},
 }
 
+# Other work locations (for unknown IPs)
+OTHER_LOCATIONS = {
+    'remote': {'name': 'リモートワーク', 'emoji': ':heads-down:', 'status': 'リモートワーク中'},
+    'site': {'name': '現場', 'emoji': ':building_construction:', 'status': '現場で勤務中'},
+}
+
 # Allowed email domain
 ALLOWED_DOMAIN = 'altenergy.co.jp'
 
@@ -61,7 +67,8 @@ def index():
     return render_template('index.html', 
                          user=user, 
                          client_ip=client_ip,
-                         office_info=office_info)
+                         office_info=office_info,
+                         other_locations=OTHER_LOCATIONS)
 
 
 @app.route('/login')
@@ -156,7 +163,8 @@ def checkin():
                              user=user,
                              client_ip=client_ip,
                              office_info=None,
-                             message='現在のIPアドレスは登録されたオフィスのものではありません',
+                             other_locations=OTHER_LOCATIONS,
+                             message='現在のIPアドレスは登録されたオフィスのものではありません。下のボタンから勤務場所を選択してください。',
                              message_type='error')
     
     # Slackステータスを更新
@@ -187,6 +195,61 @@ def checkin():
                          user=user,
                          client_ip=client_ip,
                          office_info=office_info,
+                         other_locations=OTHER_LOCATIONS,
+                         message=message,
+                         message_type=message_type)
+
+
+@app.route('/checkin_other', methods=['POST'])
+@login_required
+def checkin_other():
+    """オフィス外からのチェックイン（リモート・現場）"""
+    user = session['user']
+    client_ip = get_client_ip()
+    office_info = get_office_info(client_ip)
+    
+    location_type = request.form.get('location_type')
+    
+    if location_type not in OTHER_LOCATIONS:
+        return render_template('index.html',
+                             user=user,
+                             client_ip=client_ip,
+                             office_info=office_info,
+                             other_locations=OTHER_LOCATIONS,
+                             message='無効な勤務場所が選択されました',
+                             message_type='error')
+    
+    location_info = OTHER_LOCATIONS[location_type]
+    
+    # Slackステータスを更新
+    response = requests.post(SLACK_PROFILE_SET_URL, 
+        headers={
+            'Authorization': f'Bearer {user["access_token"]}',
+            'Content-Type': 'application/json'
+        },
+        json={
+            'profile': {
+                'status_text': location_info['status'],
+                'status_emoji': location_info['emoji'],
+                'status_expiration': 0
+            }
+        }
+    )
+    
+    result = response.json()
+    
+    if result.get('ok'):
+        message = f"{location_info['name']}で出勤しました"
+        message_type = 'success'
+    else:
+        message = f"ステータス更新エラー: {result.get('error')}"
+        message_type = 'error'
+    
+    return render_template('index.html',
+                         user=user,
+                         client_ip=client_ip,
+                         office_info=office_info,
+                         other_locations=OTHER_LOCATIONS,
                          message=message,
                          message_type=message_type)
 
@@ -227,6 +290,7 @@ def checkout():
                          user=user,
                          client_ip=client_ip,
                          office_info=office_info,
+                         other_locations=OTHER_LOCATIONS,
                          message=message,
                          message_type=message_type)
 
