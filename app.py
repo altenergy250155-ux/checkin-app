@@ -19,9 +19,10 @@ OFFICE_IPS = {
 # Allowed email domain
 ALLOWED_DOMAIN = 'altenergy.co.jp'
 
-# Slack OAuth URLs
+# Slack API URLs
 SLACK_AUTH_URL = 'https://slack.com/oauth/v2/authorize'
 SLACK_TOKEN_URL = 'https://slack.com/api/oauth.v2.access'
+SLACK_USER_INFO_URL = 'https://slack.com/api/users.info'
 SLACK_PROFILE_SET_URL = 'https://slack.com/api/users.profile.set'
 
 
@@ -68,11 +69,10 @@ def login():
     """Slack OAuth認証開始"""
     redirect_uri = url_for('slack_callback', _external=True)
     
-    # Sign in with Slack (OpenID Connect) を使用
     auth_url = (
         f"{SLACK_AUTH_URL}"
         f"?client_id={SLACK_CLIENT_ID}"
-        f"&user_scope=openid,profile,email,users.profile:write"
+        f"&user_scope=users:read,users.profile:write"
         f"&redirect_uri={redirect_uri}"
     )
     
@@ -106,27 +106,30 @@ def slack_callback():
     if not token_data.get('ok'):
         return f"トークン取得エラー: {token_data.get('error')}", 400
     
-    # ユーザー情報を取得（トークンレスポンスに含まれる）
+    # ユーザー情報を取得
     authed_user = token_data.get('authed_user', {})
     access_token = authed_user.get('access_token')
     user_id = authed_user.get('id')
     
-    # OpenID Connect の場合、ユーザー情報を userinfo エンドポイントから取得
-    userinfo_response = requests.get(
-        'https://slack.com/api/openid.connect.userInfo',
+    # users.info APIでユーザー詳細を取得
+    user_info_response = requests.get(
+        f"{SLACK_USER_INFO_URL}?user={user_id}",
         headers={'Authorization': f'Bearer {access_token}'}
     )
     
-    userinfo = userinfo_response.json()
+    user_info = user_info_response.json()
     
-    if not userinfo.get('ok'):
-        return f"ユーザー情報取得エラー: {userinfo.get('error')}", 400
+    if not user_info.get('ok'):
+        return f"ユーザー情報取得エラー: {user_info.get('error')}", 400
     
-    email = userinfo.get('email', '')
-    name = userinfo.get('name', '')
+    user_data = user_info.get('user', {})
+    profile = user_data.get('profile', {})
+    
+    name = user_data.get('real_name') or user_data.get('name', '')
+    email = profile.get('email', '')
     
     # メールドメインを確認
-    if not email.endswith(f'@{ALLOWED_DOMAIN}'):
+    if email and not email.endswith(f'@{ALLOWED_DOMAIN}'):
         return f"このアプリは @{ALLOWED_DOMAIN} のメールアドレスを持つユーザーのみ利用できます", 403
     
     # セッションにユーザー情報を保存
