@@ -525,6 +525,38 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
+@app.route('/debug')
+@login_required
+def debug():
+    """デバッグ用：HRMOS連携状況を確認"""
+    user = session['user']
+    debug_info = {
+        'slack_email': user.get('email'),
+        'hrmos_user_id_in_session': user.get('hrmos_user_id'),
+    }
+    
+    # HRMOSトークン取得テスト
+    token = get_hrmos_token()
+    debug_info['hrmos_token_obtained'] = token is not None
+    
+    if token:
+        # HRMOSユーザー検索テスト
+        hrmos_user = find_hrmos_user_by_email(token, user.get('email'))
+        debug_info['hrmos_user_found'] = hrmos_user is not None
+        if hrmos_user:
+            debug_info['hrmos_user_id'] = hrmos_user.get('id')
+            debug_info['hrmos_user_email'] = hrmos_user.get('email')
+            debug_info['hrmos_user_name'] = f"{hrmos_user.get('last_name', '')} {hrmos_user.get('first_name', '')}"
+        
+        # 全ユーザーのメールアドレス一覧（最初の5件）
+        all_users = get_hrmos_users(token)
+        debug_info['hrmos_total_users'] = len(all_users)
+        debug_info['hrmos_users_sample'] = [
+            {'id': u.get('id'), 'email': u.get('email'), 'name': f"{u.get('last_name', '')} {u.get('first_name', '')}"}
+            for u in all_users[:5]
+        ]
+    
+    return f"<html><body><h1>Debug Info</h1><pre>{debug_info}</pre></body></html>"
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
