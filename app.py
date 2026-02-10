@@ -1,4 +1,6 @@
 import os
+import base64
+from datetime import datetime, date
 import requests
 from flask import Flask, redirect, request, session, render_template, url_for
 from functools import wraps
@@ -9,6 +11,11 @@ app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev-secret-key-change-in-pr
 # Slack App credentials
 SLACK_CLIENT_ID = os.environ.get('SLACK_CLIENT_ID')
 SLACK_CLIENT_SECRET = os.environ.get('SLACK_CLIENT_SECRET')
+
+# HRMOS API credentials
+HRMOS_COMPANY_URL = os.environ.get('HRMOS_COMPANY_URL')
+HRMOS_API_SECRET = os.environ.get('HRMOS_API_SECRET')
+HRMOS_API_BASE = f"https://ieyasu.co/api/{HRMOS_COMPANY_URL}/v1"
 
 # Office IP addresses
 OFFICE_IPS = {
@@ -32,6 +39,131 @@ SLACK_USER_INFO_URL = 'https://slack.com/api/users.info'
 SLACK_PROFILE_SET_URL = 'https://slack.com/api/users.profile.set'
 
 
+# ============== HRMOS API Functions ==============
+
+def get_hrmos_token():
+    """HRMOS APIのトークンを取得"""
+    try:
+        auth_string = base64.b64encode(HRMOS_API_SECRET.encode()).decode()
+        response = requests.get(
+            f"{HRMOS_API_BASE}/authentication/token",
+            headers={
+                'Authorization': f'Basic {auth_string}',
+                'Content-Type': 'application/json'
+            }
+        )
+        if response.status_code == 200:
+            return response.json().get('token')
+    except Exception as e:
+        print(f"HRMOS token error: {e}")
+    return None
+
+
+def get_hrmos_users(token):
+    """HRMOS のユーザー一覧を取得"""
+    try:
+        users = []
+        page = 1
+        while True:
+            response = requests.get(
+                f"{HRMOS_API_BASE}/users",
+                headers={
+                    'Authorization': f'Token {token}',
+                    'Content-Type': 'application/json'
+                },
+                params={'limit': 100, 'page': page}
+            )
+            if response.status_code == 200:
+                data = response.json()
+                if not data:
+                    break
+                users.extend(data)
+                if len(data) < 100:
+                    break
+                page += 1
+            else:
+                break
+        return users
+    except Exception as e:
+        print(f"HRMOS users error: {e}")
+    return []
+
+
+def find_hrmos_user_by_email(token, email):
+    """メールアドレスからHRMOSユーザーを検索"""
+    users = get_hrmos_users(token)
+    for user in users:
+        if user.get('email') == email:
+            return user
+    return None
+
+
+def get_today_work_output(token, user_id):
+    """本日の勤怠データを取得"""
+    try:
+        today = date.today().isoformat()
+        response = requests.get(
+            f"{HRMOS_API_BASE}/work_outputs/daily/{today}",
+            headers={
+                'Authorization': f'Token {token}',
+                'Content-Type': 'application/json'
+            },
+            params={'limit': 100}
+        )
+        if response.status_code == 200:
+            data = response.json()
+            for record in data:
+                if record.get('user_id') == user_id:
+                    return record
+    except Exception as e:
+        print(f"HRMOS work output error: {e}")
+    return None
+
+
+def is_already_checked_in(token, hrmos_user_id):
+    """本日既に出勤打刻済みかどうか確認"""
+    work_output = get_today_work_output(token, hrmos_user_id)
+    if work_output:
+        # start_at が設定されていれば出勤済み
+        return work_output.get('start_at') is not None or work_output.get('stamping_start_at') is not None
+    return False
+
+
+def is_already_checked_out(token, hrmos_user_id):
+    """本日既に退勤打刻済みかどうか確認"""
+    work_output = get_today_work_output(token, hrmos_user_id)
+    if work_output:
+        # end_at が設定されていれば退勤済み
+        return work_output.get('end_at') is not None or work_output.get('stamping_end_at') is not None
+    return False
+
+
+def hrmos_stamp(token, user_id, stamp_type):
+    """HRMOS に打刻を登録
+    stamp_type: 1=出勤, 2=退勤
+    """
+    try:
+        now = datetime.now().strftime('%Y-%m-%dT%H:%M:%S+09:00')
+        response = requests.post(
+            f"{HRMOS_API_BASE}/stamp_logs",
+            headers={
+                'Authorization': f'Token {token}',
+                'Content-Type': 'application/json'
+            },
+            json={
+                'user_id': user_id,
+                'stamp_type': stamp_type,
+                'datetime': now
+            }
+        )
+        return response.status_code == 200
+    except Exception as e:
+        print(f"HRMOS stamp error: {e}")
+    return False
+
+
+# ============== Helper Functions ==============
+
 def get_client_ip():
     """クライアントのIPアドレスを取得"""
     if request.headers.get('X-Forwarded-For'):
@@ -54,6 +186,33 @@ def login_required(f):
     return decorated_function
 
 
+def get_hrmos_status():
+    """現在のHRMOS打刻状態を取得"""
+    if 'user' not in session:
+        return {'checked_in': False, 'checked_out': False, 'hrmos_user_id': None}
+    
+    user = session['user']
+    hrmos_user_id = user.get('hrmos_user_id')
+    
+    if not hrmos_user_id:
+        return {'checked_in': False, 'checked_out': False, 'hrmos_user_id': None}
+    
+    token = get_hrmos_token()
+    if not token:
+        return {'checked_in': False, 'checked_out': False, 'hrmos_user_id': hrmos_user_id}
+    
+    checked_in = is_already_checked_in(token, hrmos_user_id)
+    checked_out = is_already_checked_out(token, hrmos_user_id)
+    
+    return {
+        'checked_in': checked_in,
+        'checked_out': checked_out,
+        'hrmos_user_id': hrmos_user_id
+    }
+
+
+# ============== Routes ==============
+
 @app.route('/')
 def index():
     """メインページ"""
@@ -63,12 +222,14 @@ def index():
     user = session['user']
     client_ip = get_client_ip()
     office_info = get_office_info(client_ip)
+    hrmos_status = get_hrmos_status()
     
     return render_template('index.html', 
                          user=user, 
                          client_ip=client_ip,
                          office_info=office_info,
-                         other_locations=OTHER_LOCATIONS)
+                         other_locations=OTHER_LOCATIONS,
+                         hrmos_status=hrmos_status)
 
 
 @app.route('/login')
@@ -139,12 +300,21 @@ def slack_callback():
     if email and not email.endswith(f'@{ALLOWED_DOMAIN}'):
         return f"このアプリは @{ALLOWED_DOMAIN} のメールアドレスを持つユーザーのみ利用できます", 403
     
+    # HRMOSユーザーIDを取得
+    hrmos_user_id = None
+    hrmos_token = get_hrmos_token()
+    if hrmos_token and email:
+        hrmos_user = find_hrmos_user_by_email(hrmos_token, email)
+        if hrmos_user:
+            hrmos_user_id = hrmos_user.get('id')
+    
     # セッションにユーザー情報を保存
     session['user'] = {
         'id': user_id,
         'name': name,
         'email': email,
-        'access_token': access_token
+        'access_token': access_token,
+        'hrmos_user_id': hrmos_user_id
     }
     
     return redirect(url_for('index'))
@@ -153,10 +323,11 @@ def slack_callback():
 @app.route('/checkin', methods=['POST'])
 @login_required
 def checkin():
-    """出勤チェックイン"""
+    """出勤チェックイン（オフィスから）"""
     user = session['user']
     client_ip = get_client_ip()
     office_info = get_office_info(client_ip)
+    hrmos_status = get_hrmos_status()
     
     if not office_info:
         return render_template('index.html',
@@ -164,11 +335,12 @@ def checkin():
                              client_ip=client_ip,
                              office_info=None,
                              other_locations=OTHER_LOCATIONS,
+                             hrmos_status=hrmos_status,
                              message='現在のIPアドレスは登録されたオフィスのものではありません。下のボタンから勤務場所を選択してください。',
                              message_type='error')
     
     # Slackステータスを更新
-    response = requests.post(SLACK_PROFILE_SET_URL, 
+    slack_response = requests.post(SLACK_PROFILE_SET_URL, 
         headers={
             'Authorization': f'Bearer {user["access_token"]}',
             'Content-Type': 'application/json'
@@ -182,13 +354,28 @@ def checkin():
         }
     )
     
-    result = response.json()
+    slack_result = slack_response.json()
     
-    if result.get('ok'):
-        message = f"{office_info['name']}で出勤しました"
+    # HRMOS打刻（未打刻の場合のみ）
+    hrmos_message = ""
+    if user.get('hrmos_user_id') and not hrmos_status['checked_in']:
+        token = get_hrmos_token()
+        if token:
+            if hrmos_stamp(token, user['hrmos_user_id'], 1):
+                hrmos_message = " / HRMOS出勤打刻完了"
+            else:
+                hrmos_message = " / HRMOS打刻エラー"
+    elif hrmos_status['checked_in']:
+        hrmos_message = " / 勤務地を更新しました"
+    
+    # 状態を再取得
+    hrmos_status = get_hrmos_status()
+    
+    if slack_result.get('ok'):
+        message = f"{office_info['name']}で出勤しました{hrmos_message}"
         message_type = 'success'
     else:
-        message = f"ステータス更新エラー: {result.get('error')}"
+        message = f"ステータス更新エラー: {slack_result.get('error')}"
         message_type = 'error'
     
     return render_template('index.html',
@@ -196,6 +383,7 @@ def checkin():
                          client_ip=client_ip,
                          office_info=office_info,
                          other_locations=OTHER_LOCATIONS,
+                         hrmos_status=hrmos_status,
                          message=message,
                          message_type=message_type)
 
@@ -207,6 +395,7 @@ def checkin_other():
     user = session['user']
     client_ip = get_client_ip()
     office_info = get_office_info(client_ip)
+    hrmos_status = get_hrmos_status()
     
     location_type = request.form.get('location_type')
     
@@ -216,13 +405,14 @@ def checkin_other():
                              client_ip=client_ip,
                              office_info=office_info,
                              other_locations=OTHER_LOCATIONS,
+                             hrmos_status=hrmos_status,
                              message='無効な勤務場所が選択されました',
                              message_type='error')
     
     location_info = OTHER_LOCATIONS[location_type]
     
     # Slackステータスを更新
-    response = requests.post(SLACK_PROFILE_SET_URL, 
+    slack_response = requests.post(SLACK_PROFILE_SET_URL, 
         headers={
             'Authorization': f'Bearer {user["access_token"]}',
             'Content-Type': 'application/json'
@@ -236,13 +426,28 @@ def checkin_other():
         }
     )
     
-    result = response.json()
+    slack_result = slack_response.json()
     
-    if result.get('ok'):
-        message = f"{location_info['name']}で出勤しました"
+    # HRMOS打刻（未打刻の場合のみ）
+    hrmos_message = ""
+    if user.get('hrmos_user_id') and not hrmos_status['checked_in']:
+        token = get_hrmos_token()
+        if token:
+            if hrmos_stamp(token, user['hrmos_user_id'], 1):
+                hrmos_message = " / HRMOS出勤打刻完了"
+            else:
+                hrmos_message = " / HRMOS打刻エラー"
+    elif hrmos_status['checked_in']:
+        hrmos_message = " / 勤務地を更新しました"
+    
+    # 状態を再取得
+    hrmos_status = get_hrmos_status()
+    
+    if slack_result.get('ok'):
+        message = f"{location_info['name']}で出勤しました{hrmos_message}"
         message_type = 'success'
     else:
-        message = f"ステータス更新エラー: {result.get('error')}"
+        message = f"ステータス更新エラー: {slack_result.get('error')}"
         message_type = 'error'
     
     return render_template('index.html',
@@ -250,6 +455,7 @@ def checkin_other():
                          client_ip=client_ip,
                          office_info=office_info,
                          other_locations=OTHER_LOCATIONS,
+                         hrmos_status=hrmos_status,
                          message=message,
                          message_type=message_type)
 
@@ -261,9 +467,10 @@ def checkout():
     user = session['user']
     client_ip = get_client_ip()
     office_info = get_office_info(client_ip)
+    hrmos_status = get_hrmos_status()
     
     # Slackステータスをクリア
-    response = requests.post(SLACK_PROFILE_SET_URL,
+    slack_response = requests.post(SLACK_PROFILE_SET_URL,
         headers={
             'Authorization': f'Bearer {user["access_token"]}',
             'Content-Type': 'application/json'
@@ -277,13 +484,29 @@ def checkout():
         }
     )
     
-    result = response.json()
+    slack_result = slack_response.json()
     
-    if result.get('ok'):
-        message = '退勤しました。お疲れ様でした！'
+    # HRMOS退勤打刻
+    hrmos_message = ""
+    if user.get('hrmos_user_id'):
+        if hrmos_status['checked_out']:
+            hrmos_message = " / 既に退勤打刻済みです"
+        else:
+            token = get_hrmos_token()
+            if token:
+                if hrmos_stamp(token, user['hrmos_user_id'], 2):
+                    hrmos_message = " / HRMOS退勤打刻完了"
+                else:
+                    hrmos_message = " / HRMOS打刻エラー"
+    
+    # 状態を再取得
+    hrmos_status = get_hrmos_status()
+    
+    if slack_result.get('ok'):
+        message = f'退勤しました。お疲れ様でした！{hrmos_message}'
         message_type = 'success'
     else:
-        message = f"ステータス更新エラー: {result.get('error')}"
+        message = f"ステータス更新エラー: {slack_result.get('error')}"
         message_type = 'error'
     
     return render_template('index.html',
@@ -291,6 +514,7 @@ def checkout():
                          client_ip=client_ip,
                          office_info=office_info,
                          other_locations=OTHER_LOCATIONS,
+                         hrmos_status=hrmos_status,
                          message=message,
                          message_type=message_type)
 
