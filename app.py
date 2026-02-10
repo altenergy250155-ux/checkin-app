@@ -41,40 +41,21 @@ SLACK_PROFILE_SET_URL = 'https://slack.com/api/users.profile.set'
 
 # ============== HRMOS API Functions ==============
 
-def get_hrmos_users(token):
-    """HRMOS のユーザー一覧を取得（修正版）"""
+def get_hrmos_token():
+    """HRMOS APIのトークンを取得"""
     try:
-        users = []
-        page = 1
-        while True:
-            response = requests.get(
-                f"{HRMOS_API_BASE}/users",
-                headers={
-                    'Authorization': f'Token {token}',
-                    'Content-Type': 'application/json'
-                },
-                params={'limit': 100, 'page': page}
-            )
-            if response.status_code == 200:
-                data = response.json()
-                # データが空、またはリストでない場合はループを抜ける
-                if not data or len(data) == 0:
-                    break
-                
-                users.extend(data)
-                
-                # 取得した件数が limit(100) より少なければ、それが最後のページ
-                if len(data) < 100:
-                    break
-                
-                # ちょうど100件の場合は次のページがある可能性があるので継続
-                page += 1
-            else:
-                break
-        return users
+        response = requests.get(
+            f"{HRMOS_API_BASE}/authentication/token",
+            headers={
+                'Authorization': f'Basic {HRMOS_API_SECRET}',
+                'Content-Type': 'application/json'
+            }
+        )
+        if response.status_code == 200:
+            return response.json().get('token')
     except Exception as e:
-        print(f"HRMOS users error: {e}")
-    return []
+        print(f"HRMOS token error: {e}")
+    return None
 
 def get_hrmos_users(token):
     """HRMOS のユーザー一覧を取得"""
