@@ -44,11 +44,10 @@ SLACK_PROFILE_SET_URL = 'https://slack.com/api/users.profile.set'
 def get_hrmos_token():
     """HRMOS APIのトークンを取得"""
     try:
-        auth_string = base64.b64encode(HRMOS_API_SECRET.encode()).decode()
         response = requests.get(
             f"{HRMOS_API_BASE}/authentication/token",
             headers={
-                'Authorization': f'Basic {auth_string}',
+                'Authorization': f'Basic {HRMOS_API_SECRET}',
                 'Content-Type': 'application/json'
             }
         )
