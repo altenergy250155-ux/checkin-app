@@ -58,7 +58,7 @@ def get_hrmos_token():
     return None
 
 def get_hrmos_users(token):
-    """HRMOS のユーザー一覧を取得"""
+    """HRMOS のユーザー一覧を取得（修正版）"""
     try:
         users = []
         page = 1
@@ -73,11 +73,17 @@ def get_hrmos_users(token):
             )
             if response.status_code == 200:
                 data = response.json()
-                if not data:
+                # データが空、またはリストでない場合はループを抜ける
+                if not data or len(data) == 0:
                     break
+                
                 users.extend(data)
+                
+                # 取得した件数が limit(100) より少なければ、それが最後のページ
                 if len(data) < 100:
                     break
+                
+                # ちょうど100件の場合は次のページがある可能性があるので継続
                 page += 1
             else:
                 break
