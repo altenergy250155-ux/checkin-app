@@ -580,7 +580,7 @@ def debug():
         debug_info['hrmos_total_users'] = len(all_users)
         debug_info['hrmos_users_sample'] = [
             {'id': u.get('id'), 'email': u.get('email'), 'name': f"{u.get('last_name', '')} {u.get('first_name', '')}"}
-            for u in all_users[:5]
+            for u in all_users[:45]
         ]
     
     # 見やすく整形
