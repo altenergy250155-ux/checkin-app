@@ -74,6 +74,7 @@
             background: white;
             border-radius: 8px;
             border: 1px solid #e0e0e0;
+            margin-bottom: 8px;
         }
         
         .user-info .location .icon {
@@ -102,6 +103,33 @@
         
         .user-info .location.unknown .value {
             color: #856404;
+        }
+        
+        .hrmos-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+            font-size: 14px;
+        }
+        
+        .hrmos-status.checked-in {
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        
+        .hrmos-status.not-checked-in {
+            background: #fff3cd;
+            border-color: #ffc107;
+            color: #856404;
+        }
+        
+        .hrmos-status .status-icon {
+            font-size: 16px;
         }
         
         .buttons {
@@ -134,6 +162,16 @@
         .btn-checkin:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-location-change {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        
+        .btn-location-change:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(245, 87, 108, 0.4);
         }
         
         .btn-checkout {
@@ -193,13 +231,13 @@
         }
         
         .btn-site {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            background: linear-gradient(135deg, #fc4a1a 0%, #f7b733 100%);
             color: white;
         }
         
         .btn-site:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(245, 87, 108, 0.4);
+            box-shadow: 0 4px 12px rgba(252, 74, 26, 0.4);
         }
         
         .footer {
@@ -300,6 +338,13 @@
                 </div>
             </div>
             {% endif %}
+            
+            {% if hrmos_status and hrmos_status.hrmos_user_id %}
+            <div class="hrmos-status {% if hrmos_status.checked_in %}checked-in{% else %}not-checked-in{% endif %}">
+                <span class="status-icon">{% if hrmos_status.checked_in %}✅{% else %}⏳{% endif %}</span>
+                <span>HRMOS: {% if hrmos_status.checked_in %}出勤打刻済み{% else %}未打刻{% endif %}</span>
+            </div>
+            {% endif %}
         </div>
         
         {% if message %}
@@ -312,9 +357,15 @@
         <!-- オフィスにいる場合 -->
         <div class="buttons">
             <form action="/checkin" method="post" style="flex: 1;">
+                {% if hrmos_status and hrmos_status.checked_in %}
+                <button type="submit" class="btn btn-location-change">
+                    勤務地変更
+                </button>
+                {% else %}
                 <button type="submit" class="btn btn-checkin">
                     出勤
                 </button>
+                {% endif %}
             </form>
             <form action="/checkout" method="post" style="flex: 1;">
                 <button type="submit" class="btn btn-checkout">
@@ -329,15 +380,27 @@
             <div class="other-buttons">
                 <form action="/checkin_other" method="post" style="flex: 1;">
                     <input type="hidden" name="location_type" value="remote">
+                    {% if hrmos_status and hrmos_status.checked_in %}
+                    <button type="submit" class="btn btn-remote">
+                        🏠 リモート<br><small>（勤務地変更）</small>
+                    </button>
+                    {% else %}
                     <button type="submit" class="btn btn-remote">
                         🏠 リモートワーク
                     </button>
+                    {% endif %}
                 </form>
                 <form action="/checkin_other" method="post" style="flex: 1;">
                     <input type="hidden" name="location_type" value="site">
+                    {% if hrmos_status and hrmos_status.checked_in %}
+                    <button type="submit" class="btn btn-site">
+                        🏗️ 現場<br><small>（勤務地変更）</small>
+                    </button>
+                    {% else %}
                     <button type="submit" class="btn btn-site">
                         🏗️ 現場
                     </button>
+                    {% endif %}
                 </form>
             </div>
         </div>
