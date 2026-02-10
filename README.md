@@ -32,6 +32,8 @@
    - `SLACK_CLIENT_ID`: Slack AppのClient ID
    - `SLACK_CLIENT_SECRET`: Slack AppのClient Secret
    - `FLASK_SECRET_KEY`: 自動生成される
+   - 'HRMOS_COMPANY_URL':オルテナジーのHRMOSのURL
+   - 'HRMOS_API_SECRET':HRMOSのAPIキー、4か月に一回更新する必要があるので注意'
 
 ### 3. Slack AppのRedirect URL更新
 
