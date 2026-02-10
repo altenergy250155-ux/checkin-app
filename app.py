@@ -530,14 +530,43 @@ def logout():
 def debug():
     """デバッグ用：HRMOS連携状況を確認"""
     user = session['user']
+    
+    # 環境変数の確認
     debug_info = {
         'slack_email': user.get('email'),
         'hrmos_user_id_in_session': user.get('hrmos_user_id'),
+        'env_hrmos_company_url': HRMOS_COMPANY_URL,
+        'env_hrmos_api_secret_exists': HRMOS_API_SECRET is not None,
+        'env_hrmos_api_secret_length': len(HRMOS_API_SECRET) if HRMOS_API_SECRET else 0,
+        'hrmos_api_base': HRMOS_API_BASE,
     }
     
     # HRMOSトークン取得テスト
-    token = get_hrmos_token()
+    token = None
+    token_error = None
+    try:
+        if HRMOS_API_SECRET:
+            import base64
+            auth_string = base64.b64encode(HRMOS_API_SECRET.encode()).decode()
+            debug_info['auth_string_preview'] = auth_string[:20] + '...'
+            
+            response = requests.get(
+                f"{HRMOS_API_BASE}/authentication/token",
+                headers={
+                    'Authorization': f'Basic {auth_string}',
+                    'Content-Type': 'application/json'
+                }
+            )
+            debug_info['token_response_status'] = response.status_code
+            debug_info['token_response_body'] = response.text[:500]
+            
+            if response.status_code == 200:
+                token = response.json().get('token')
+    except Exception as e:
+        token_error = str(e)
+    
     debug_info['hrmos_token_obtained'] = token is not None
+    debug_info['hrmos_token_error'] = token_error
     
     if token:
         # HRMOSユーザー検索テスト
@@ -556,7 +585,10 @@ def debug():
             for u in all_users[:5]
         ]
     
-    return f"<html><body><h1>Debug Info</h1><pre>{debug_info}</pre></body></html>"
+    # 見やすく整形
+    import json
+    formatted = json.dumps(debug_info, indent=2, ensure_ascii=False)
+    return f"<html><body><h1>Debug Info</h1><pre>{formatted}</pre></body></html>"
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
