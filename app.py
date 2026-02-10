@@ -20,7 +20,7 @@ HRMOS_API_BASE = f"https://ieyasu.co/api/{HRMOS_COMPANY_URL}/v1"
 # Office IP addresses
 OFFICE_IPS = {
     '39.110.215.6': {'name': '銀座オフィス', 'emoji': ':office:', 'status': '銀座オフィスで勤務中'},
-    '143.189.212.172': {'name': '立川オフィス', 'emoji': ':office:', 'status': '立川オフィスで勤務中'},
+    '143.189.212.172': {'name': '立川オフィス', 'emoji': ':cityscape:', 'status': '立川オフィスで勤務中'},
 }
 
 # Other work locations (for unknown IPs)
