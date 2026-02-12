@@ -11,6 +11,7 @@ app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev-secret-key-change-in-pr
 # Slack App credentials
 SLACK_CLIENT_ID = os.environ.get('SLACK_CLIENT_ID')
 SLACK_CLIENT_SECRET = os.environ.get('SLACK_CLIENT_SECRET')
+SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN')
 
 # HRMOS API credentials
 HRMOS_COMPANY_URL = os.environ.get('HRMOS_COMPANY_URL')
@@ -604,5 +605,71 @@ def debug():
     import json
     formatted = json.dumps(debug_info, indent=2, ensure_ascii=False)
     return f"<html><body><h1>Debug Info</h1><pre>{formatted}</pre></body></html>"
+@app.route('/status_list')
+@login_required
+def status_list():
+    """全ユーザーのSlackステータス一覧"""
+    
+    # Bot Tokenで全ユーザーを取得
+    users_response = requests.get(
+        'https://slack.com/api/users.list',
+        headers={'Authorization': f'Bearer {SLACK_BOT_TOKEN}'}
+    )
+    
+    users_data = users_response.json()
+    
+    if not users_data.get('ok'):
+        return f"ユーザー一覧取得エラー: {users_data.get('error')}", 400
+    
+    # ユーザー情報を整理
+    user_statuses = []
+    for member in users_data.get('members', []):
+        # Botや削除済みユーザーは除外
+        if member.get('is_bot') or member.get('deleted'):
+            continue
+        
+        profile = member.get('profile', {})
+        
+        # @altenergy.co.jp のユーザーのみ表示
+        email = profile.get('email', '')
+        if not email.endswith('@altenergy.co.jp'):
+            continue
+        
+        status_text = profile.get('status_text', '')
+        status_emoji = profile.get('status_emoji', '')
+        
+        # ステータスから勤務地を判定
+        location = '未設定'
+        location_class = 'unknown'
+        if '銀座' in status_text:
+            location = '銀座オフィス'
+            location_class = 'ginza'
+        elif '立川' in status_text:
+            location = '立川オフィス'
+            location_class = 'tachikawa'
+        elif 'リモート' in status_text:
+            location = 'リモートワーク'
+            location_class = 'remote'
+        elif '現場' in status_text:
+            location = '現場'
+            location_class = 'site'
+        elif status_text:
+            location = status_text
+            location_class = 'other'
+        
+        user_statuses.append({
+            'name': member.get('real_name') or member.get('name', ''),
+            'email': email,
+            'status_text': status_text,
+            'status_emoji': status_emoji,
+            'location': location,
+            'location_class': location_class,
+            'image': profile.get('image_48', ''),
+        })
+    
+    # 名前順でソート
+    user_statuses.sort(key=lambda x: x['name'])
+    
+    return render_template('status_list.html', users=user_statuses)
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
