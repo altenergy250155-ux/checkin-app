@@ -1,6 +1,6 @@
 import os
 import base64
-from datetime import datetime, date
+from datetime import datetime, date, timezone, timedelta
 import requests
 from flask import Flask, redirect, request, session, render_template, url_for
 from functools import wraps
@@ -147,7 +147,9 @@ def hrmos_stamp(token, user_id, stamp_type):
     stamp_type: 1=出勤, 2=退勤
     """
     try:
-        now = datetime.now().strftime('%Y-%m-%dT%H:%M:%S+09:00')
+        # 日本時間（JST = UTC+9）で現在時刻を取得
+        jst = timezone(timedelta(hours=9))
+        now = datetime.now(jst).strftime('%Y-%m-%dT%H:%M:%S+09:00')
         response = requests.post(
             f"{HRMOS_API_BASE}/stamp_logs",
             headers={
