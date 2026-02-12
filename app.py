@@ -105,7 +105,9 @@ def find_hrmos_user_by_email(token, email):
 def get_today_work_output(token, user_id):
     """本日の勤怠データを取得"""
     try:
-        today = date.today().isoformat()
+        # 日本時間（JST = UTC+9）で本日の日付を取得
+        jst = timezone(timedelta(hours=9))
+        today = datetime.now(jst).strftime('%Y-%m-%d')
         response = requests.get(
             f"{HRMOS_API_BASE}/work_outputs/daily/{today}",
             headers={
