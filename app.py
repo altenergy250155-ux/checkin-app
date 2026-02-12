@@ -584,6 +584,7 @@ def debug():
                 
                 if user_record:
                     debug_info['user_record_found'] = True
+                    debug_info['user_record_full'] = user_record  # レコード全体を表示
                     debug_info['start_at'] = user_record.get('start_at')
                     debug_info['stamping_start_at'] = user_record.get('stamping_start_at')
                     debug_info['end_at'] = user_record.get('end_at')
