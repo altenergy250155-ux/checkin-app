@@ -560,6 +560,7 @@ def debug():
         
         # 本日の勤怠データを取得
         try:
+            debug_info['api_request_url'] = f"{HRMOS_API_BASE}/work_outputs/daily/{today_jst}"
             response = requests.get(
                 f"{HRMOS_API_BASE}/work_outputs/daily/{today_jst}",
                 headers={
