@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>勤務状況一覧</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 30px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .nav-links {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .nav-links a {
+            color: #667eea;
+            text-decoration: none;
+            margin: 0 10px;
+        }
+        
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+        
+        .summary {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .summary-item {
+            background: #f8f9fa;
+            padding: 15px 25px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .summary-item .count {
+            font-size: 28px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .summary-item .label {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .summary-item.ginza { border-left: 4px solid #667eea; }
+        .summary-item.tachikawa { border-left: 4px solid #764ba2; }
+        .summary-item.remote { border-left: 4px solid #11998e; }
+        .summary-item.site { border-left: 4px solid #fc4a1a; }
+        .summary-item.unknown { border-left: 4px solid #ccc; }
+        
+        .user-list {
+            display: grid;
+            gap: 12px;
+        }
+        
+        .user-card {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            gap: 15px;
+        }
+        
+        .user-card img {
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+        }
+        
+        .user-info {
+            flex: 1;
+        }
+        
+        .user-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+        
+        .user-email {
+            font-size: 12px;
+            color: #888;
+        }
+        
+        .user-status {
+            text-align: right;
+        }
+        
+        .location-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .location-badge.ginza {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .location-badge.tachikawa {
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+            color: white;
+        }
+        
+        .location-badge.remote {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+        
+        .location-badge.site {
+            background: linear-gradient(135deg, #fc4a1a 0%, #f7b733 100%);
+            color: white;
+        }
+        
+        .location-badge.other {
+            background: #e9ecef;
+            color: #495057;
+        }
+        
+        .location-badge.unknown {
+            background: #f8f9fa;
+            color: #aaa;
+            border: 1px solid #ddd;
+        }
+        
+        .status-emoji {
+            margin-right: 5px;
+        }
+        
+        .refresh-btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin-top: 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            text-align: center;
+            text-decoration: none;
+        }
+        
+        .refresh-btn:hover {
+            background: #5a6fd6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>勤務状況一覧</h1>
+            <p>社員の現在の勤務場所を確認できます</p>
+        </div>
+        
+        <div class="nav-links">
+            <a href="/">← チェックイン画面に戻る</a>
+        </div>
+        
+        <div class="summary">
+            <div class="summary-item ginza">
+                <div class="count">{{ users|selectattr('location_class', 'eq', 'ginza')|list|length }}</div>
+                <div class="label">銀座オフィス</div>
+            </div>
+            <div class="summary-item tachikawa">
+                <div class="count">{{ users|selectattr('location_class', 'eq', 'tachikawa')|list|length }}</div>
+                <div class="label">立川オフィス</div>
+            </div>
+            <div class="summary-item remote">
+                <div class="count">{{ users|selectattr('location_class', 'eq', 'remote')|list|length }}</div>
+                <div class="label">リモート</div>
+            </div>
+            <div class="summary-item site">
+                <div class="count">{{ users|selectattr('location_class', 'eq', 'site')|list|length }}</div>
+                <div class="label">現場</div>
+            </div>
+            <div class="summary-item unknown">
+                <div class="count">{{ users|selectattr('location_class', 'eq', 'unknown')|list|length }}</div>
+                <div class="label">未設定</div>
+            </div>
+        </div>
+        
+        <div class="user-list">
+            {% for user in users %}
+            <div class="user-card">
+                {% if user.image %}
+                <img src="{{ user.image }}" alt="{{ user.name }}">
+                {% else %}
+                <div style="width:48px;height:48px;background:#ddd;border-radius:8px;"></div>
+                {% endif %}
+                <div class="user-info">
+                    <div class="user-name">{{ user.name }}</div>
+                    <div class="user-email">{{ user.email }}</div>
+                </div>
+                <div class="user-status">
+                    <span class="location-badge {{ user.location_class }}">
+                        {% if user.status_emoji %}<span class="status-emoji">{{ user.status_emoji }}</span>{% endif %}
+                        {{ user.location }}
+                    </span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <a href="/status_list" class="refresh-btn">🔄 更新</a>
+    </div>
+</body>
+</html>
