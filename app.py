@@ -594,6 +594,30 @@ def debug():
     import json
     formatted = json.dumps(debug_info, indent=2, ensure_ascii=False)
     return f"<html><body><h1>Debug Info</h1><pre>{formatted}</pre></body></html>"
-
+@app.route('/test_time')
+@login_required
+def test_time():
+    """打刻時間のテスト（実際には打刻しない）"""
+    from datetime import timezone, timedelta
+    
+    # サーバーのUTC時刻
+    utc_now = datetime.now(timezone.utc)
+    
+    # 日本時間（JST = UTC+9）
+    jst = timezone(timedelta(hours=9))
+    jst_now = datetime.now(jst)
+    
+    # HRMOSに送信される形式
+    hrmos_format = jst_now.strftime('%Y-%m-%dT%H:%M:%S+09:00')
+    
+    result = {
+        'サーバー時刻（UTC）': utc_now.strftime('%Y-%m-%d %H:%M:%S'),
+        '日本時間（JST）': jst_now.strftime('%Y-%m-%d %H:%M:%S'),
+        'HRMOSに送信される値': hrmos_format,
+    }
+    
+    import json
+    formatted = json.dumps(result, indent=2, ensure_ascii=False)
+    return f"<html><body><h1>打刻時間テスト</h1><pre>{formatted}</pre><p>※実際の打刻は行われません</p></body></html>"
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
