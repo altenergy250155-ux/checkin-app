@@ -539,87 +539,68 @@ def debug():
     """デバッグ用：HRMOS連携状況を確認"""
     user = session['user']
     
-    # 環境変数の確認
+    # 日本時間
+    jst = timezone(timedelta(hours=9))
+    jst_now = datetime.now(jst)
+    today_jst = jst_now.strftime('%Y-%m-%d')
+    
     debug_info = {
         'slack_email': user.get('email'),
         'hrmos_user_id_in_session': user.get('hrmos_user_id'),
-        'env_hrmos_company_url': HRMOS_COMPANY_URL,
-        'env_hrmos_api_secret_exists': HRMOS_API_SECRET is not None,
-        'env_hrmos_api_secret_length': len(HRMOS_API_SECRET) if HRMOS_API_SECRET else 0,
-        'hrmos_api_base': HRMOS_API_BASE,
+        'today_jst': today_jst,
+        'current_time_jst': jst_now.strftime('%Y-%m-%d %H:%M:%S'),
     }
     
-    # HRMOSトークン取得テスト
-    token = None
-    token_error = None
-    try:
-        if HRMOS_API_SECRET:
-            import base64
-            debug_info['auth_header_preview'] = f"Basic {HRMOS_API_SECRET[:20]}..."
-            
+    # HRMOSトークン取得
+    token = get_hrmos_token()
+    debug_info['hrmos_token_obtained'] = token is not None
+    
+    if token and user.get('hrmos_user_id'):
+        hrmos_user_id = user.get('hrmos_user_id')
+        
+        # 本日の勤怠データを取得
+        try:
             response = requests.get(
-                f"{HRMOS_API_BASE}/authentication/token",
+                f"{HRMOS_API_BASE}/work_outputs/daily/{today_jst}",
                 headers={
-                    'Authorization': f'Basic {HRMOS_API_SECRET}',
+                    'Authorization': f'Token {token}',
                     'Content-Type': 'application/json'
-                }
+                },
+                params={'limit': 100}
             )
-            debug_info['token_response_status'] = response.status_code
-            debug_info['token_response_body'] = response.text[:500]
+            debug_info['work_outputs_status'] = response.status_code
             
             if response.status_code == 200:
-                token = response.json().get('token')
-    except Exception as e:
-        token_error = str(e)
+                data = response.json()
+                debug_info['work_outputs_count'] = len(data)
+                
+                # 該当ユーザーのデータを探す
+                user_record = None
+                for record in data:
+                    if record.get('user_id') == hrmos_user_id:
+                        user_record = record
+                        break
+                
+                if user_record:
+                    debug_info['user_record_found'] = True
+                    debug_info['start_at'] = user_record.get('start_at')
+                    debug_info['stamping_start_at'] = user_record.get('stamping_start_at')
+                    debug_info['end_at'] = user_record.get('end_at')
+                    debug_info['stamping_end_at'] = user_record.get('stamping_end_at')
+                    
+                    # 判定ロジック
+                    is_checked_in = user_record.get('start_at') is not None or user_record.get('stamping_start_at') is not None
+                    debug_info['is_checked_in'] = is_checked_in
+                else:
+                    debug_info['user_record_found'] = False
+                    
+                    # 全レコードのuser_idを表示（デバッグ用）
+                    debug_info['all_user_ids_in_response'] = [r.get('user_id') for r in data[:10]]
+        except Exception as e:
+            debug_info['error'] = str(e)
     
-    debug_info['hrmos_token_obtained'] = token is not None
-    debug_info['hrmos_token_error'] = token_error
-    
-    if token:
-        # HRMOSユーザー検索テスト
-        hrmos_user = find_hrmos_user_by_email(token, user.get('email'))
-        debug_info['hrmos_user_found'] = hrmos_user is not None
-        if hrmos_user:
-            debug_info['hrmos_user_id'] = hrmos_user.get('id')
-            debug_info['hrmos_user_email'] = hrmos_user.get('email')
-            debug_info['hrmos_user_name'] = f"{hrmos_user.get('last_name', '')} {hrmos_user.get('first_name', '')}"
-        
-        # 全ユーザーのメールアドレス一覧（最初の5件）
-        all_users = get_hrmos_users(token)
-        debug_info['hrmos_total_users'] = len(all_users)
-        debug_info['hrmos_users_sample'] = [
-            {'id': u.get('id'), 'email': u.get('email'), 'name': f"{u.get('last_name', '')} {u.get('first_name', '')}"}
-            for u in all_users[:45]
-        ]
-    
-    # 見やすく整形
     import json
     formatted = json.dumps(debug_info, indent=2, ensure_ascii=False)
     return f"<html><body><h1>Debug Info</h1><pre>{formatted}</pre></body></html>"
-@app.route('/test_time')
-@login_required
-def test_time():
-    """打刻時間のテスト（実際には打刻しない）"""
-    from datetime import timezone, timedelta
-    
-    # サーバーのUTC時刻
-    utc_now = datetime.now(timezone.utc)
-    
-    # 日本時間（JST = UTC+9）
-    jst = timezone(timedelta(hours=9))
-    jst_now = datetime.now(jst)
-    
-    # HRMOSに送信される形式
-    hrmos_format = jst_now.strftime('%Y-%m-%dT%H:%M:%S+09:00')
-    
-    result = {
-        'サーバー時刻（UTC）': utc_now.strftime('%Y-%m-%d %H:%M:%S'),
-        '日本時間（JST）': jst_now.strftime('%Y-%m-%d %H:%M:%S'),
-        'HRMOSに送信される値': hrmos_format,
-    }
-    
-    import json
-    formatted = json.dumps(result, indent=2, ensure_ascii=False)
-    return f"<html><body><h1>打刻時間テスト</h1><pre>{formatted}</pre><p>※実際の打刻は行われません</p></body></html>"
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
