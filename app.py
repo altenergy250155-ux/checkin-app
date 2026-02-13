@@ -658,6 +658,7 @@ def status_list():
             location_class = 'unknown'
         
         user_statuses.append({
+            'slack_id': member.get('id'),
             'name': member.get('real_name') or member.get('name', ''),
             'email': email,
             'status_text': status_text,
