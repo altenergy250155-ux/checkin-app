@@ -642,10 +642,10 @@ def status_list():
         location = '未設定'
         location_class = 'unknown'
         if '銀座' in status_text:
-            location = '銀座オフィス'
+            location = '銀座'
             location_class = 'ginza'
         elif '立川' in status_text:
-            location = '立川オフィス'
+            location = '立川'
             location_class = 'tachikawa'
         elif 'リモート' in status_text:
             location = 'リモートワーク'
@@ -654,8 +654,8 @@ def status_list():
             location = '現場'
             location_class = 'site'
         elif status_text:
-            location = status_text
-            location_class = 'other'
+            location = '未設定'
+            location_class = 'unknown'
         
         user_statuses.append({
             'name': member.get('real_name') or member.get('name', ''),
