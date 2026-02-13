@@ -61,7 +61,7 @@
         .summary {
             display: flex;
             justify-content: center;
-            gap: 20px;
+            gap: 15px;
             margin-bottom: 30px;
             flex-wrap: wrap;
         }
@@ -71,6 +71,18 @@
             padding: 15px 25px;
             border-radius: 10px;
             text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 2px solid transparent;
+        }
+        
+        .summary-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .summary-item.active {
+            border-color: #333;
         }
         
         .summary-item .count {
@@ -88,7 +100,7 @@
         .summary-item.tachikawa { border-left: 4px solid #764ba2; }
         .summary-item.remote { border-left: 4px solid #11998e; }
         .summary-item.site { border-left: 4px solid #fc4a1a; }
-        .summary-item.unknown { border-left: 4px solid #ccc; }
+        .summary-item.all { border-left: 4px solid #333; }
         
         .user-list {
             display: grid;
@@ -102,6 +114,10 @@
             background: #f8f9fa;
             border-radius: 10px;
             gap: 15px;
+        }
+        
+        .user-card.hidden {
+            display: none;
         }
         
         .user-card img {
@@ -135,41 +151,27 @@
             border-radius: 20px;
             font-size: 14px;
             font-weight: 500;
+            color: white;
         }
         
         .location-badge.ginza {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: #667eea;
         }
         
         .location-badge.tachikawa {
-            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
-            color: white;
+            background: #764ba2;
         }
         
         .location-badge.remote {
-            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-            color: white;
+            background: #11998e;
         }
         
         .location-badge.site {
-            background: linear-gradient(135deg, #fc4a1a 0%, #f7b733 100%);
-            color: white;
-        }
-        
-        .location-badge.other {
-            background: #e9ecef;
-            color: #495057;
+            background: #fc4a1a;
         }
         
         .location-badge.unknown {
-            background: #f8f9fa;
-            color: #aaa;
-            border: 1px solid #ddd;
-        }
-        
-        .status-emoji {
-            margin-right: 5px;
+            background: #aaa;
         }
         
         .refresh-btn {
@@ -190,6 +192,12 @@
         .refresh-btn:hover {
             background: #5a6fd6;
         }
+        
+        .no-users {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
     </style>
 </head>
 <body>
@@ -204,31 +212,31 @@
         </div>
         
         <div class="summary">
-            <div class="summary-item ginza">
+            <div class="summary-item all active" onclick="filterUsers('all')">
+                <div class="count">{{ users|length }}</div>
+                <div class="label">全員</div>
+            </div>
+            <div class="summary-item ginza" onclick="filterUsers('ginza')">
                 <div class="count">{{ users|selectattr('location_class', 'eq', 'ginza')|list|length }}</div>
-                <div class="label">銀座オフィス</div>
+                <div class="label">銀座</div>
             </div>
-            <div class="summary-item tachikawa">
+            <div class="summary-item tachikawa" onclick="filterUsers('tachikawa')">
                 <div class="count">{{ users|selectattr('location_class', 'eq', 'tachikawa')|list|length }}</div>
-                <div class="label">立川オフィス</div>
+                <div class="label">立川</div>
             </div>
-            <div class="summary-item remote">
+            <div class="summary-item remote" onclick="filterUsers('remote')">
                 <div class="count">{{ users|selectattr('location_class', 'eq', 'remote')|list|length }}</div>
-                <div class="label">リモート</div>
+                <div class="label">リモートワーク</div>
             </div>
-            <div class="summary-item site">
+            <div class="summary-item site" onclick="filterUsers('site')">
                 <div class="count">{{ users|selectattr('location_class', 'eq', 'site')|list|length }}</div>
                 <div class="label">現場</div>
             </div>
-            <div class="summary-item unknown">
-                <div class="count">{{ users|selectattr('location_class', 'eq', 'unknown')|list|length }}</div>
-                <div class="label">未設定</div>
-            </div>
         </div>
         
-        <div class="user-list">
+        <div class="user-list" id="userList">
             {% for user in users %}
-            <div class="user-card">
+            <div class="user-card" data-location="{{ user.location_class }}">
                 {% if user.image %}
                 <img src="{{ user.image }}" alt="{{ user.name }}">
                 {% else %}
@@ -240,7 +248,6 @@
                 </div>
                 <div class="user-status">
                     <span class="location-badge {{ user.location_class }}">
-                        {% if user.status_emoji %}<span class="status-emoji">{{ user.status_emoji }}</span>{% endif %}
                         {{ user.location }}
                     </span>
                 </div>
@@ -248,7 +255,43 @@
             {% endfor %}
         </div>
         
+        <div class="no-users" id="noUsers" style="display: none;">
+            該当するユーザーはいません
+        </div>
+        
         <a href="/status_list" class="refresh-btn">🔄 更新</a>
     </div>
+    
+    <script>
+        function filterUsers(location) {
+            // サマリーのアクティブ状態を更新
+            document.querySelectorAll('.summary-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            document.querySelector('.summary-item.' + location).classList.add('active');
+            
+            // ユーザーカードをフィルタリング
+            const userCards = document.querySelectorAll('.user-card');
+            let visibleCount = 0;
+            
+            userCards.forEach(card => {
+                const cardLocation = card.getAttribute('data-location');
+                if (location === 'all' || cardLocation === location) {
+                    card.classList.remove('hidden');
+                    visibleCount++;
+                } else {
+                    card.classList.add('hidden');
+                }
+            });
+            
+            // 該当者がいない場合のメッセージ
+            const noUsersMsg = document.getElementById('noUsers');
+            if (visibleCount === 0) {
+                noUsersMsg.style.display = 'block';
+            } else {
+                noUsersMsg.style.display = 'none';
+            }
+        }
+    </script>
 </body>
 </html>
