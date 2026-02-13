@@ -671,5 +671,54 @@ def status_list():
     user_statuses.sort(key=lambda x: x['name'])
     
     return render_template('status_list.html', users=user_statuses)
+    @app.route('/send_dm', methods=['POST'])
+@login_required
+def send_dm():
+    """指定したユーザーにDMを送信"""
+    sender = session['user']
+    target_user_id = request.form.get('target_user_id')
+    
+    if not target_user_id:
+        return {'success': False, 'error': '送信先が指定されていません'}, 400
+    
+    # DMチャンネルを開く
+    open_response = requests.post(
+        'https://slack.com/api/conversations.open',
+        headers={
+            'Authorization': f'Bearer {SLACK_BOT_TOKEN}',
+            'Content-Type': 'application/json'
+        },
+        json={'users': target_user_id}
+    )
+    
+    open_data = open_response.json()
+    
+    if not open_data.get('ok'):
+        return {'success': False, 'error': open_data.get('error')}, 400
+    
+    channel_id = open_data['channel']['id']
+    
+    # メッセージを送信
+    sender_name = sender.get('name', '誰か')
+    message = f"{sender_name}より、呼び出しがありました。"
+    
+    msg_response = requests.post(
+        'https://slack.com/api/chat.postMessage',
+        headers={
+            'Authorization': f'Bearer {SLACK_BOT_TOKEN}',
+            'Content-Type': 'application/json'
+        },
+        json={
+            'channel': channel_id,
+            'text': message
+        }
+    )
+    
+    msg_data = msg_response.json()
+    
+    if msg_data.get('ok'):
+        return {'success': True}
+    else:
+        return {'success': False, 'error': msg_data.get('error')}, 400
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
