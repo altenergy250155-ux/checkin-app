@@ -672,7 +672,8 @@ def status_list():
     user_statuses.sort(key=lambda x: x['name'])
     
     return render_template('status_list.html', users=user_statuses)
-    @app.route('/send_dm', methods=['POST'])
+    
+@app.route('/send_dm', methods=['POST'])
 @login_required
 def send_dm():
     """指定したユーザーにDMを送信"""
