@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>テスト用 - 勤務地チェックイン</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ffa500 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            width: 100%;
+            max-width: 420px;
+        }
+        
+        .test-badge {
+            background: #ff6b6b;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            display: inline-block;
+            margin-bottom: 15px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .user-info {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+        
+        .user-info .name {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .user-info .email {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .section-title {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 12px;
+            text-align: center;
+            font-weight: 600;
+        }
+        
+        .buttons {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 16px 24px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-ginza {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-ginza:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-tachikawa {
+            background: #764ba2;
+            color: white;
+        }
+        
+        .btn-tachikawa:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(118, 75, 162, 0.4);
+        }
+        
+        .btn-remote {
+            background: #11998e;
+            color: white;
+        }
+        
+        .btn-remote:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(17, 153, 142, 0.4);
+        }
+        
+        .btn-site {
+            background: #fc4a1a;
+            color: white;
+        }
+        
+        .btn-site:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(252, 74, 26, 0.4);
+        }
+        
+        .btn-checkout {
+            background: #f8f9fa;
+            color: #333;
+            border: 2px solid #e0e0e0;
+            width: 100%;
+        }
+        
+        .btn-checkout:hover {
+            background: #e9ecef;
+        }
+        
+        .message {
+            padding: 14px 16px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            text-align: center;
+        }
+        
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .footer a {
+            color: #888;
+            font-size: 14px;
+            text-decoration: none;
+            margin: 0 10px;
+        }
+        
+        .footer a:hover {
+            color: #666;
+            text-decoration: underline;
+        }
+        
+        .ip-info {
+            text-align: center;
+            margin-top: 16px;
+            font-size: 12px;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <span class="test-badge">⚠️ テストモード</span>
+            <h1>勤務地チェックイン</h1>
+            <p>すべてのボタンを表示しています</p>
+        </div>
+        
+        <div class="user-info">
+            <div class="name">{{ user.name }} さん</div>
+            <div class="email">{{ user.email }}</div>
+        </div>
+        
+        {% if message %}
+        <div class="message {{ message_type }}">
+            {{ message }}
+        </div>
+        {% endif %}
+        
+        <div class="section-title">オフィス出勤</div>
+        <div class="buttons">
+            <form action="/test_checkin" method="post" style="flex: 1;">
+                <input type="hidden" name="location" value="ginza">
+                <button type="submit" class="btn btn-ginza">🏢 銀座</button>
+            </form>
+            <form action="/test_checkin" method="post" style="flex: 1;">
+                <input type="hidden" name="location" value="tachikawa">
+                <button type="submit" class="btn btn-tachikawa">🏢 立川</button>
+            </form>
+        </div>
+        
+        <div class="section-title">オフィス外出勤</div>
+        <div class="buttons">
+            <form action="/checkin_other" method="post" style="flex: 1;">
+                <input type="hidden" name="location_type" value="remote">
+                <button type="submit" class="btn btn-remote">🏠 リモートワーク</button>
+            </form>
+            <form action="/checkin_other" method="post" style="flex: 1;">
+                <input type="hidden" name="location_type" value="site">
+                <button type="submit" class="btn btn-site">🏗️ 現場</button>
+            </form>
+        </div>
+        
+        <div class="section-title">退勤</div>
+        <form action="/checkout" method="post">
+            <button type="submit" class="btn btn-checkout">退勤</button>
+        </form>
+        
+        <div class="footer">
+            <a href="/">← 通常画面に戻る</a>
+            <a href="/status_list">勤務状況一覧</a>
+            <a href="/logout">ログアウト</a>
+        </div>
+        
+        <div class="ip-info">
+            現在のIP: {{ client_ip }}
+        </div>
+    </div>
+</body>
+</html>
