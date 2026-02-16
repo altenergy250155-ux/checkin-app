@@ -498,6 +498,18 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
+@app.route('/test_view')
+@login_required
+def test_view():
+    """テスト用：すべてのボタンを表示（IP判定なし）"""
+    user = session['user']
+    client_ip = get_client_ip()
+    
+    return render_template('test_view.html', 
+                         user=user, 
+                         client_ip=client_ip,
+                         other_locations=OTHER_LOCATIONS)
+
 
 @app.route('/status_list')
 @login_required
