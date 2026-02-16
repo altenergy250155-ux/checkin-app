@@ -510,6 +510,53 @@ def test_view():
                          client_ip=client_ip,
                          other_locations=OTHER_LOCATIONS)
 
+@app.route('/test_checkin', methods=['POST'])
+@login_required
+def test_checkin():
+    """テスト用：任意の勤務地でチェックイン"""
+    user = session['user']
+    client_ip = get_client_ip()
+    location = request.form.get('location')
+    
+    # 勤務地情報を取得
+    if location == 'ginza':
+        location_info = OFFICE_IPS.get('39.110.215.6')
+    elif location == 'tachikawa':
+        location_info = OFFICE_IPS.get('143.189.212.172')
+    else:
+        return redirect(url_for('test_view'))
+    
+    # Slackステータスを更新
+    slack_response = requests.post(SLACK_PROFILE_SET_URL, 
+        headers={
+            'Authorization': f'Bearer {user["access_token"]}',
+            'Content-Type': 'application/json'
+        },
+        json={
+            'profile': {
+                'status_text': location_info['status'],
+                'status_emoji': location_info['emoji'],
+                'status_expiration': 0
+            }
+        }
+    )
+    
+    slack_result = slack_response.json()
+    
+    if slack_result.get('ok'):
+        message = f"{location_info['name']}で出勤しました"
+        message_type = 'success'
+    else:
+        message = f"ステータス更新エラー: {slack_result.get('error')}"
+        message_type = 'error'
+    
+    return render_template('test_view.html',
+                         user=user,
+                         client_ip=client_ip,
+                         other_locations=OTHER_LOCATIONS,
+                         message=message,
+                         message_type=message_type)
+
 
 @app.route('/status_list')
 @login_required
